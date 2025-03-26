@@ -39,9 +39,6 @@ cp helpers.py $CONDA_PREFIX/lib/python3.12/site-packages/timm/models/layers/help
 > \[!TIP\]
 > A copy of our `environment.yml` file is included in this subdirectory to promote reproducilibity of our experiments.
 
-- [ ] @AshettyV: I'm curious if the code runs without installing rust. Can you try that first? If it works, then we can just leave that step out.
-- [ ] @AshettyV: We definitely need `timm`, but I'm not sure if the pyyaml dependency is actually needed since it doesn't show up when I do a global Ctrl + F. Can you also leave this out when setting up for the first time?
-
 **Baseline-specific dependencies**: Some baselines require additional setup. See below:
 
 <details>
