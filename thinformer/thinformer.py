@@ -45,7 +45,7 @@ def exp_kernel(
     """Returns tensor of weighted exponential kernel matrices
     kernel_mat[b,a,h]
         = exp(key[b,a,:,h] @ key[b,a,:,h].T - shift[b,0,h])
-        * (value[b,a,:,h] @ value[b,a,:,h].T + 1)
+        * (value[b,a,:,h] @ value[b,a,:,h].T + b_sqd[b,0,h])
 
     Note: Assumes key has already been scaled appropriately by
     sqrt(softmax_temp)
@@ -133,12 +133,14 @@ def halve(
 
     Args:
         X: tensor of shape [B, A, S, H, 2*E]
-        shift: tensor of shape [B, 1, H, 1, 1] accepted by exp_kernel
+        shift: tensor of shape [B, 1, H, 1, 1] accepted by exp_kernel;
+            max K row sum for X = concat(K, V), to prevent overflow via log-sum-exp trick
         halve_prob: halve_K is run with delta = halve_prob * S^2
         symmetrize: if False, returns initial coreset for each (b,a,h);
             if True, returns initial coreset or its complement uniformly at
             random for each (b,a,h)
-        b_sqd: tensor of shape [B, 1, H, 1, 1]
+        b_sqd: tensor of shape [B, 1, H, 1, 1];
+            max infnorm of V, for X = concat(K, V)
 
     Assumes key and value components of X have the same shape
 
@@ -186,6 +188,7 @@ def _khcompress(
 
     """
     B, S, H, E_plus_D = X.shape
+    # max infnorm of V, for X = concat(K, V)
     b_sqd = (
         vector_norm(
             X[:, :, :, E_plus_D // 2 :], dim=(1, 3), ord=inf, keepdim=True
@@ -354,6 +357,7 @@ class ThinformerAttention(nn.Module):
         E = key.shape[-1]
         sqrt_softmax_temp = sqrt(self.scale or 1 / sqrt(E))
         X = cat((key * sqrt_softmax_temp, value), dim=3)
+        # max K row sum for X = concat(K, V), to prevent overflow via log-sum-exp trick
         shift = amax(square(X[..., :E]).sum(dim=3, keepdim=True), dim=1, keepdim=True)
         shift = shift.permute((0, 2, 1, 3))
         shift = shift.unsqueeze(1)
