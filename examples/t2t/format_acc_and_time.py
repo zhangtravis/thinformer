@@ -40,7 +40,7 @@ methods = [
     "full",
     "performer",
     "reformer",
-    # "scatterbrain",
+    "scatterbrain",
     "kdeformer",
     "thinformer",
 ]
