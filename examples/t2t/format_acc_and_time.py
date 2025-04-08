@@ -40,8 +40,8 @@ methods = [
     "full",
     "performer",
     "reformer",
-    "scatterbrain",
     "kdeformer",
+    "scatterbrain",
     "thinformer",
 ]
 METHOD_ALIASES = {
