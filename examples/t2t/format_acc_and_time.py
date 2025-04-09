@@ -53,9 +53,9 @@ METHOD_ALIASES = {
     "thinformer": "\\Centerstack{\\bf Thinformer (Ours)}",
 }
 COLUMN_ALIASES = {
-    "accuracy": "\\Centerstack{\\bf Top-1 Accuracy (\\%)$^\\dagger$}",
-    "attention1.attn.attention_layer": "\\Centerstack{\\bf Layer 1 Runtime (ms)}$^\\star$",
-    "attention2.attn.attention_layer": "\\Centerstack{\\bf Layer 2 Runtime (ms)}$^\\star$",
+    "accuracy": "\\Centerstack{\\bf Top-1 Accuracy (\\%)}",
+    "attention1.attn.attention_layer": "\\Centerstack{\\bf Layer 1 Runtime (ms)}",
+    "attention2.attn.attention_layer": "\\Centerstack{\\bf Layer 2 Runtime (ms)}",
 }
 
 # load files from output/acc/
