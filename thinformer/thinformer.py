@@ -319,7 +319,7 @@ class ThinformerAttention(nn.Module):
         Args:
             g (int): oversampling parameter, a nonnegative integer
             scale (float): scale for dot-product attention. 
-              If `None`, the scale is set to 1/sqrt(E).
+              If `None`, scale is chosen as 1/sqrt(key.shape[-1]) in forward.
             use_torch_spda (bool): if True, use 
               torch.nn.functional.scaled_dot_product_attention,
               which automatically optimizes the attention computation for GPUs, 
