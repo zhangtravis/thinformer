@@ -43,9 +43,6 @@ pip install einops lightning lightning-bolts
 pip install numpy matplotlib pandas tabulate
 # Replace outdated helpers file in installed timm package
 cp helpers.py $CONDA_PREFIX/lib/python3.12/site-packages/timm/models/layers/helpers.py
-# Install scatterbrain
-git clone https://github.com/albertgong1/fast-transformers.git
-pip install fast-transformers/
 # Install thinformer
 pip install git+https://github.com/microsoft/thinformer.git
 ```
