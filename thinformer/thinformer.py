@@ -309,7 +309,7 @@ class ThinformerAttention(nn.Module):
 
     def __init__(
         self,
-        g: int = 1,
+        g: int = 2,
         scale: float | None = None,
         use_torch_spda: bool = False,
         **kwargs: dict,
