@@ -2,6 +2,7 @@ import math
 import torch
 
 from .hyper_attn import HyperAttention
+from thinformer.thinformer import ThinformerHyperAttention
 
 # Edited from https://huggingface.co/THUDM/chatglm2-6b-32k/blob/main/modeling_chatglm.py#L194
 class FastCoreAttention(torch.nn.Module):
@@ -44,6 +45,11 @@ class FastCoreAttention(torch.nn.Module):
                 sample_size=sample_size, 
                 min_seq_len=min_seq_len,
                 cuda='cuda' in self.attn_method)
+        elif self.attn_method == 'thinformer':
+            min_seq_len = kwargs.get('min_seq_len')
+            self.attn = ThinformerHyperAttention(
+                min_seq_len=min_seq_len,
+            ).to(device='cuda')
         else: 
             raise NotImplementedError("Invalid attn_method option")
         

@@ -26,7 +26,7 @@ def get_arguments():
     parser.add_argument("--seq_len", type=int, default=32768)
     # patch config
     parser.add_argument("--patch_config", type=str, default="last", choices=['last', 'first', 'even', 'odd'])
-    parser.add_argument("--attn_method", type=str, default="hyper", choices=['flash', 'hyper', 'hyper-cuda'])
+    parser.add_argument("--attn_method", type=str, default="hyper", choices=['flash', 'hyper', 'hyper-cuda', 'thinformer'])
     parser.add_argument("--num_patch_layers", type=int, default=-1)
     # params of HyperAttention
     parser.add_argument("--block_size", type=int, default=256)
@@ -51,9 +51,12 @@ def main():
 
     # Load LongBench datasets
     dataset = 'longbench'
-    dataset_names = ["narrativeqa", "qasper", "multifieldqa_en", "multifieldqa_zh", "hotpotqa", "2wikimqa", "musique", \
-        "dureader", "gov_report", "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht", \
-        "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"]
+    if False:
+        dataset_names = ["narrativeqa", "qasper", "multifieldqa_en", "multifieldqa_zh", "hotpotqa", "2wikimqa", "musique", \
+            "dureader", "gov_report", "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht", \
+            "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"]
+    else:
+        dataset_names = ["narrativeqa"]
     
     data_subset_all = []
     for dataset in dataset_names:
