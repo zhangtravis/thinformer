@@ -276,11 +276,31 @@ def khcompress(
         symmetrize=True)
     return key, value
 
+def add_self_attentions(attn1, lse1, attn2, lse2):
+    """
+    inputs:
+        - attn1, attn2: 4d-tensors with shape [b, h, n, d]
+        - lse1, lse2: 4d-tensors of log-sum-exp with shape [b, h, n, 1]
+    output:
+        - attn
+        = (attn1 * exp(lse1) + attn2 * exp(lse2)) / (exp(lse1) + exp(lse2))
+        = (attn1 + attn2 * exp(lse2 - lse1)) / (1 + exp(lse2-lse1))
+        = attn1 * c + attn2 * (1-c), where c=1/(1 + exp(lse2-lse1)),
+        - lse 
+        = log(exp(lse1) + exp(lse2)) 
+        = log(exp(lse1) * (1 + exp(lse2 - lse1))) 
+        = lse1 + log(1 + exp(lse2 - lse1)) = lse1 - log(c)
+    """
+    c = (1 / (1 + (lse2 - lse1).exp())).to(dtype=attn1.dtype)
+    attn = c * attn1 + (1-c) * attn2
+    lse = lse1 - (c + torch.finfo(lse1.dtype).eps).log()
+    return attn, lse
+
 
 @torch.compile(mode="reduce-overhead", fullgraph=True)
 def full_forward(
-    query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-) -> tuple[torch.Tensor, None]:
+    query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, causal: bool = False
+) -> tuple[torch.Tensor, torch.Tensor]:
     """Implements the multihead softmax attention assuming
     query and key have already been scaled appropriately
     (e.g., that key has been multiplied by
@@ -291,17 +311,26 @@ def full_forward(
         query: (B, T, H, E) The tensor containing the query
         key: (B, S, H, E) The tensor containing the key
         value: (B, S, H, D) The tensor containing the value
+        causal: bool, optional (default=False) Whether to apply causal masking
 
     Returns:
         output: (B, T, H, D) The tensor containing the output
-        A: (B, T, H, S) The attention weights
+        lse: (B, T, S, H) Logsumexp of QK
 
     """
     QK = einsum("bthe,bshe->bhts", query, key)
+    
+    if causal:
+        # Create causal mask where True means "masked out"
+        mask = torch.triu(torch.ones(query.shape[1], key.shape[1], dtype=torch.bool, device=query.device), diagonal=1)
+        # Apply mask by setting masked positions to -inf before softmax
+        QK = QK.masked_fill(mask, float('-inf'))
+    
     A = softmax(QK, dim=-1)
     output = einsum("bhts,bshd->bthd", A, value)
+    lse = torch.logsumexp(QK, dim=-1, keepdim=True)
 
-    return output, A
+    return output, lse
 
 
 class ThinformerAttention(nn.Module):
@@ -386,5 +415,152 @@ class ThinformerAttention(nn.Module):
             # NOTE: returning the attention weights is not supported in the current
             # implementation of torch.nn.functional.scaled_dot_product_attention
             return out, None
+        else:
+            return full_forward(query, key, value)
+
+class ThinformerHyperAttention(nn.Module):
+    """Implementation of Thinformer Attention module."""
+
+    def __init__(
+        self,
+        g: int = 2,
+        scale: float | None = None,
+        use_torch_spda: bool = False,
+        **kwargs: dict,
+    ):
+        """Initialize the ThinformerAttention module.
+
+        Args:
+            g (int): oversampling parameter, a nonnegative integer
+            scale (float): scale for dot-product attention. 
+              If `None`, scale is chosen as 1/sqrt(key.shape[-1]) in forward.
+            use_torch_spda (bool): if True, use 
+              torch.nn.functional.scaled_dot_product_attention,
+              which automatically optimizes the attention computation for GPUs, 
+              for the final attention computation.
+            kwargs: placeholder for other arguments
+
+        """
+        super().__init__()
+        self.g = g
+        self.scale = scale
+        self.use_torch_spda = use_torch_spda
+
+    def forward(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        scale=None,
+        causal=False,
+        return_lse=False
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        query = query.contiguous()
+        key = key.contiguous()
+        value = value.contiguous()
+
+        n_query = query.shape[2]
+        batch_size, n_heads, n_key, dim = key.shape
+
+        # Without causal masking
+        if not causal: 
+            attn, lse = self.forward_no_causal_mask(query, key, value)
+
+        # With causal masking
+        else:
+            if n_key <= self.min_seq_len:
+                attn, lse = full_forward(query, key, value, causal=True)
+            else:
+            
+                # If n_query is odd we pad inputs by adding all-zero rows
+                if n_query % 2:
+                    query = torch.nn.functional.pad(query, (0,0,0,1), mode='constant',value=0.)
+                    key = torch.nn.functional.pad(key, (0,0,0,1), mode='constant',value=0.)
+                    value = torch.nn.functional.pad(value, (0,0,0,1), mode='constant',value=0.)
+
+                q_bd = query.view(batch_size, 2*n_heads, query.shape[2]//2, query.shape[-1])
+                k_bd = key.view(batch_size, 2*n_heads, key.shape[2]//2, key.shape[-1])
+                v_bd = value.view(batch_size, 2*n_heads, key.shape[2]//2, value.shape[-1])
+        
+                attn_bd, lse_bd = self.forward(q_bd, k_bd, v_bd, scale, True, True)
+                
+                if attn_bd.shape[2] not in attn_bd.stride():
+                    attn_bd = attn_bd.contiguous()
+                attn_bd = attn_bd.view(batch_size, n_heads, -1, dim)
+
+                if lse_bd.shape[2] not in lse_bd.stride():
+                    lse_bd = lse_bd.contiguous()
+                lse_bd = lse_bd.view(batch_size, n_heads, -1, 1)
+
+                attn_unmasked, lse_unmasked = self.forward_no_causal_mask(
+                    query[:, :, key.shape[2]//2:, :],
+                    key[:, :, :key.shape[2]//2, :], 
+                    value[:, :, :key.shape[2]//2, :])
+
+                attn_up, lse_up = attn_bd[:,:,:query.shape[2]//2,:], lse_bd[:,:,:query.shape[2]//2,:]
+                attn_down, lse_down = add_self_attentions(
+                    attn_bd[:,:,query.shape[2]//2:,:],
+                    lse_bd[:,:,query.shape[2]//2:,:],
+                    attn_unmasked,
+                    lse_unmasked)
+
+                attn = torch.cat((attn_up, attn_down), dim=-2)
+                lse = torch.cat((lse_up, lse_down), dim=-2)
+
+                # If n_query was odd exclude the last rows
+                if n_query % 2:
+                    attn = attn[:,:,:-1,:]
+                    lse = lse[:,:,:-1,:]
+
+        if not return_lse:
+            return attn
+        else:
+            return attn, lse
+
+
+
+    def forward_no_causal_mask(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """The forward pass of the ThinformerAttention module comprises
+        two steps:
+        1. Select a subset of the key and value pairs using KH-Compress.
+           The size of this subset is 2^g sqrt(S), where S is the number
+           of key-value pairs and g is the oversampling parameter.
+        2. For each query vector, only attend to the selected key and value
+           pairs. The computational complexity of this step is 2^g sqrt(S) * T.
+
+        NOTE: the second step can be computed using a generic scaled dot-
+        product attention implementation or an optimized implementation,
+        e.g., torch.nn.functional.scaled_dot_product_attention.
+
+        Args:
+            query: (B, T, H, E) The tensor containing the queries
+            key: (B, S, H, E) The tensor containing the keys
+            value: (B, S, H, D) The tensor containing the values
+
+        Returns:
+            output: (B, T, H, D) The tensor approximating
+              softmax(query * tranpose(key) * softmax_temp) * value
+              for softmax_temp = self.scale or 1 / sqrt(E)
+            A: (B, T, H, S) The attention weights approximating
+              softmax(query * tranpose(key) * softmax_temp)
+
+        """
+        # Compute squareroot of softmax temperature 
+        # for the attention that A = softmax(query * key * softmax_temp)
+        E = key.shape[-1]
+        sqrt_softmax_temp = sqrt(self.scale or 1 / sqrt(E))
+        S = key.shape[1]
+        log4_n = log4_largest_power_of_four(S)
+        key, value = khcompress(key * sqrt_softmax_temp, value, 
+                                log4_n, g=self.g)
+        key = key * sqrt_softmax_temp
+
+        if self.use_torch_spda:
+            raise NotImplemented("Not completed") # type: ignore
         else:
             return full_forward(query, key, value)
