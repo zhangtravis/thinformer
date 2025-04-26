@@ -22,6 +22,8 @@ pip install -e .
 
 ## Results
 
+Note: all results were run using an Nvidia A6000 GPU with 48 GB memory with CUDA 12.1.
+
 ### Runtime
 
 **Exact:**
