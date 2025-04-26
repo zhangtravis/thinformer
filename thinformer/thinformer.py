@@ -24,6 +24,10 @@ from torch import bool as torch_bool
 from torch.linalg import vector_norm
 from torch.nn.functional import scaled_dot_product_attention
 from math import sqrt, log
+try:
+    from flash_attn import flash_attn_func as flash_attn_func_cuda
+except ImportError:
+    flash_attn_func_cuda = None
 
 def log4_largest_power_of_four(n: int) -> int:
     """Returns log_4 of the largest power of four less than or equal to n.
@@ -474,7 +478,7 @@ class ThinformerHyperAttention(nn.Module):
             if n_key <= self.min_seq_len:
                 # NOTE: key, value have shape [B, S, H, D]
                 # query has shape [B, T, H, E]
-                attn, lse = full_forward(query.transpose(1, 2), key.transpose(1, 2), value.transpose(1, 2), causal=True)
+                attn, lse = self.flash_full_forward(query.transpose(1, 2), key.transpose(1, 2), value.transpose(1, 2), causal=True)
                 # NOTE: attn has shape [B, T, H, S]
                 # lse has shape [B, T, S, H]
             else:
@@ -531,6 +535,17 @@ class ThinformerHyperAttention(nn.Module):
             return attn, lse
 
 
+    def flash_full_forward(self,
+        query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, causal: bool = False
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if flash_attn_func_cuda is None:
+            raise ImportError("Please install flash_attn (pip install flash-attn --no-build-isolation)")
+        out, lse, _ = flash_attn_func_cuda(
+            query.transpose(1,2), key.transpose(1,2), value.transpose(1,2),
+            softmax_scale=self.scale, causal=causal, return_attn_probs=True)
+        out = out.transpose(1,2)
+        lse = lse.unsqueeze(-1)
+        return out, lse
 
     def forward_no_causal_mask(
         self,
@@ -576,4 +591,4 @@ class ThinformerHyperAttention(nn.Module):
         if self.use_torch_spda:
             raise NotImplemented("Not completed") # type: ignore
         else:
-            return full_forward(query, key, value)
+            return self.flash_full_forward(query, key, value)
