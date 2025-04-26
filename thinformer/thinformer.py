@@ -462,6 +462,15 @@ class ThinformerHyperAttention(nn.Module):
         causal=False,
         return_lse=False
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        inputs:
+            query: (B, H, T, E) The tensor containing the queries
+            key: (B, H, S, E) The tensor containing the keys
+            value: (B, H, S, D) The tensor containing the values
+            scale: float, optional, default=None
+            causal: bool, optional, default=False
+        """
+
         query = query.contiguous()
         key = key.contiguous()
         value = value.contiguous()
@@ -490,9 +499,9 @@ class ThinformerHyperAttention(nn.Module):
                     value = torch.nn.functional.pad(value, (0,0,0,1), mode='constant',value=0.)
 
                 # NOTE: should be using transpose instead of view?
-                q_bd = query.view(batch_size, 2*n_heads, query.shape[2]//2, query.shape[-1])
-                k_bd = key.view(batch_size, 2*n_heads, key.shape[2]//2, key.shape[-1])
-                v_bd = value.view(batch_size, 2*n_heads, key.shape[2]//2, value.shape[-1])
+                q_bd = query.view(batch_size, query.shape[2]//2, 2*n_heads, query.shape[-1]).transpose(1, 2)
+                k_bd = key.view(batch_size, key.shape[2]//2, 2*n_heads, key.shape[-1]).transpose(1, 2)
+                v_bd = value.view(batch_size, key.shape[2]//2, 2*n_heads, value.shape[-1]).transpose(1, 2)
         
                 attn_bd, lse_bd = self.forward(q_bd, k_bd, v_bd, scale, True, True)
                 
