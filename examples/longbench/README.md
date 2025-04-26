@@ -8,6 +8,7 @@
 # Create conda environment
 conda create -n thinformer-longbench python=3.12
 conda activate thinformer-longbench
+pip install torch torchvision torchaudio
 # Install triton
 pip install triton
 ```
