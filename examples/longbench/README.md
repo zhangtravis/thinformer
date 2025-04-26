@@ -54,10 +54,10 @@ python benchmark_single_attention.py --attn_method thinformer --mode fwd
 
 ### Perplexity
 
-For the exact attention method, please run:
+**Exact:**
 
 ```bash
-python benchmark_patch_llm.py --attn_method flash --seq_len 32768
+python benchmark_patch_llm.py --attn_method flash-cuda --seq_len 32768
 ```
 
 Expected result:
@@ -67,7 +67,20 @@ ppl: 5.634139089948601, nan_cnt: 0
 model: chatglm2-6b-32k, dtype: torch.bfloat16, seq_len: 32768, num_patch_layers: -1, n_data: 144, ppl: 5.634139089948601, nan_cnt: 0
 ```
 
-For the thinformer method, please run:
+**HyperAttention:**
+
+```bash
+python benchmark_patch_llm.py --attn_method hyper-cuda --seq_len 32768
+```
+
+Expected result:
+
+```bash
+ppl: 13.547103060846743, nan_cnt: 0
+model: chatglm2-6b-32k, dtype: torch.bfloat16, seq_len: 32768, num_patch_layers: -1, n_data: 115, ppl: 13.547103060846743, nan_cnt: 0
+```
+
+**Thinformer:**
 
 ```bash
 python benchmark_patch_llm.py --attn_method thinformer --seq_len 32768
