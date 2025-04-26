@@ -140,6 +140,7 @@ def main():
         print(f"{arg_name:<16} : {arg_var}")
 
     seq_lens = [2**i for i in range(10, 18)]
+    # seq_lens = [8192]
     
     attn_method = args.attn_method # ['flash', 'hyper']
     mode = args.mode # ['fwd', 'bwd', 'fwd+bwd']

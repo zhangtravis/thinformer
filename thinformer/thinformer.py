@@ -470,6 +470,7 @@ class ThinformerHyperAttention(nn.Module):
             scale: float, optional, default=None
             causal: bool, optional, default=False
         """
+        # import pdb; pdb.set_trace()
 
         query = query.contiguous()
         key = key.contiguous()
@@ -485,11 +486,7 @@ class ThinformerHyperAttention(nn.Module):
         # With causal masking
         else:
             if n_key <= self.min_seq_len:
-                # NOTE: key, value have shape [B, S, H, D]
-                # query has shape [B, T, H, E]
-                attn, lse = self.flash_full_forward(query.transpose(1, 2), key.transpose(1, 2), value.transpose(1, 2), causal=True)
-                # NOTE: attn has shape [B, T, H, S]
-                # lse has shape [B, T, S, H]
+                attn, lse = self.flash_full_forward(query, key, value, causal=True)
             else:
             
                 # If n_query is odd we pad inputs by adding all-zero rows
@@ -499,9 +496,9 @@ class ThinformerHyperAttention(nn.Module):
                     value = torch.nn.functional.pad(value, (0,0,0,1), mode='constant',value=0.)
 
                 # NOTE: should be using transpose instead of view?
-                q_bd = query.view(batch_size, query.shape[2]//2, 2*n_heads, query.shape[-1]).transpose(1, 2)
-                k_bd = key.view(batch_size, key.shape[2]//2, 2*n_heads, key.shape[-1]).transpose(1, 2)
-                v_bd = value.view(batch_size, key.shape[2]//2, 2*n_heads, value.shape[-1]).transpose(1, 2)
+                q_bd = query.view(batch_size, 2*n_heads, query.shape[2]//2, query.shape[-1])
+                k_bd = key.view(batch_size, 2*n_heads, key.shape[2]//2, key.shape[-1])
+                v_bd = value.view(batch_size, 2*n_heads, value.shape[2]//2, value.shape[-1])
         
                 attn_bd, lse_bd = self.forward(q_bd, k_bd, v_bd, scale, True, True)
                 
@@ -516,12 +513,11 @@ class ThinformerHyperAttention(nn.Module):
                     lse_bd = lse_bd.contiguous()
                 lse_bd = lse_bd.view(batch_size, n_heads, -1, 1)
 
+                # import pdb; pdb.set_trace()
                 attn_unmasked, lse_unmasked = self.forward_no_causal_mask(
                     query[:, :, key.shape[2]//2:, :].transpose(1, 2),
                     key[:, :, :key.shape[2]//2, :].transpose(1, 2), 
                     value[:, :, :key.shape[2]//2, :].transpose(1, 2))
-                attn_unmasked = attn_unmasked.transpose(1, 2)
-                # lse_unmasked = lse_unmasked.transpose(1, 2)
 
                 attn_up, lse_up = attn_bd[:,:,:query.shape[2]//2,:], lse_bd[:,:,:query.shape[2]//2,:]
                 attn_down, lse_down = add_self_attentions(
@@ -547,11 +543,26 @@ class ThinformerHyperAttention(nn.Module):
     def flash_full_forward(self,
         query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, causal: bool = False
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Args:
+            query: (B, H, T, E) The tensor containing the queries
+            key: (B, H, S, E) The tensor containing the keys
+            value: (B, H, S, D) The tensor containing the values
+            causal: bool, optional, default=False
+
+        Returns:
+            output: (B, H, T, D) The tensor approximating
+              softmax(query * tranpose(key) * softmax_temp) * value
+              for softmax_temp = self.scale or 1 / sqrt(E)
+            lse: (B, H, T, 1) The log-sum-exp of the attention weights approximating
+              softmax(query * tranpose(key) * softmax_temp)
+        """
         if flash_attn_func_cuda is None:
             raise ImportError("Please install flash_attn (pip install flash-attn --no-build-isolation)")
         out, lse, _ = flash_attn_func_cuda(
             query.transpose(1,2), key.transpose(1,2), value.transpose(1,2),
             softmax_scale=self.scale, causal=causal, return_attn_probs=True)
+        # import pdb; pdb.set_trace()
         out = out.transpose(1,2)
         lse = lse.unsqueeze(-1)
         return out, lse
@@ -580,10 +591,10 @@ class ThinformerHyperAttention(nn.Module):
             value: (B, S, H, D) The tensor containing the values
 
         Returns:
-            output: (B, T, H, D) The tensor approximating
+            output: (B, H, T, D) The tensor approximating
               softmax(query * tranpose(key) * softmax_temp) * value
               for softmax_temp = self.scale or 1 / sqrt(E)
-            A: (B, T, H, S) The attention weights approximating
+            lse: (B, H, T, 1) The log-sum-exp of the attention weights approximating
               softmax(query * tranpose(key) * softmax_temp)
 
         """
@@ -600,4 +611,4 @@ class ThinformerHyperAttention(nn.Module):
         if self.use_torch_spda:
             raise NotImplemented("Not completed") # type: ignore
         else:
-            return self.flash_full_forward(query, key, value)
+            return self.flash_full_forward(query.transpose(1,2), key.transpose(1,2), value.transpose(1,2))
