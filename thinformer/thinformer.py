@@ -426,6 +426,7 @@ class ThinformerHyperAttention(nn.Module):
         g: int = 2,
         scale: float | None = None,
         use_torch_spda: bool = False,
+        min_seq_len=4096,
         **kwargs: dict,
     ):
         """Initialize the ThinformerAttention module.
@@ -445,6 +446,7 @@ class ThinformerHyperAttention(nn.Module):
         self.g = g
         self.scale = scale
         self.use_torch_spda = use_torch_spda
+        self.min_seq_len = min_seq_len
 
     def forward(
         self,
