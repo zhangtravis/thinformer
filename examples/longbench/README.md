@@ -17,7 +17,7 @@ cd ../..
 pip install -e .
 ```
 
-> \[!NOTE\]
+> \[!WARNING\]
 > The original instructions for installing triton using `pip install triton==2.0.0.dev20221202 --no-deps` from the `hyper-attn` repo is outdated. If installing `torch==2.6.0`, triton 3.2.0 will automatically be installed.
 
 ## Results
