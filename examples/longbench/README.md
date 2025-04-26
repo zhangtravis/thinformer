@@ -11,6 +11,8 @@ conda activate thinformer-longbench
 pip install torch torchvision torchaudio
 # Install triton
 pip install triton
+# Install other needed Python packages
+pip install tqdm einops
 ```
 
 > \[!NOTE\]
@@ -19,5 +21,5 @@ pip install triton
 ## Results
 
 ```bash
-python benchmark_single_attention_layer.py --attn_method hyper
+python benchmark_single_attention.py --attn_method hyper
 ```
