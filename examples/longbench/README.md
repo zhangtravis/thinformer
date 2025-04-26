@@ -24,7 +24,7 @@ pip install -e .
 
 ### Runtime
 
-For the exact attention method, please run:
+**Exact:**
 
 ```bash
 python benchmark_single_attention.py --attn_method flash-cuda --mode fwd
@@ -36,20 +36,48 @@ no_causal        : False
 mode             : fwd+bwd
 attn_method      : flash-cuda
 mode: fwd+bwd, attn_method: flash-cuda, batch_size: 1, head_size: 32, dim: 64
-[fwd+bwd ], flash-cuda, seq_len: 1024    , causal: True, ms: 0.35123 (0.35430, 0.35738) | 
-[fwd+bwd ], flash-cuda, seq_len: 2048    , causal: True, ms: 0.91443 (0.92211, 0.92877) | 
-[fwd+bwd ], flash-cuda, seq_len: 4096    , causal: True, ms: 2.86802 (2.87795, 2.89567) | 
-[fwd+bwd ], flash-cuda, seq_len: 8192    , causal: True, ms: 9.99711 (10.02138, 10.03868) | 
-[fwd+bwd ], flash-cuda, seq_len: 16384   , causal: True, ms: 37.70122 (37.95558, 38.11942) | 
-[fwd+bwd ], flash-cuda, seq_len: 32768   , causal: True, ms: 147.96513 (148.00538, 148.04562) | 
-[fwd+bwd ], flash-cuda, seq_len: 65536   , causal: True, ms: 594.00497 (594.00497, 594.00497) | 
-[fwd+bwd ], flash-cuda, seq_len: 131072  , causal: True, ms: 2405.08624 (2405.08624, 2405.08624) |
+[fwd     ], flash-cuda, seq_len: 1024    , causal: True, ms: 0.09421 (0.09728, 0.10035) |
+[fwd     ], flash-cuda, seq_len: 2048    , causal: True, ms: 0.27034 (0.27546, 0.28058) |
+[fwd     ], flash-cuda, seq_len: 4096    , causal: True, ms: 0.86528 (0.87552, 0.88781) |
+[fwd     ], flash-cuda, seq_len: 8192    , causal: True, ms: 3.08859 (3.11194, 3.13631) |
+[fwd     ], flash-cuda, seq_len: 16384   , causal: True, ms: 12.01234 (12.08730, 12.15857) |
+[fwd     ], flash-cuda, seq_len: 32768   , causal: True, ms: 51.96738 (52.15846, 52.34954) |
+[fwd     ], flash-cuda, seq_len: 65536   , causal: True, ms: 198.91609 (198.91609, 198.91609) |
+[fwd     ], flash-cuda, seq_len: 131072  , causal: True, ms: 841.84473 (841.84473, 841.84473) |
 ```
 
-For the thinformer method, please run:
+**HyperAttention:**
+
+```bash
+python benchmark_single_attention.py --attn_method hyper-cuda --mode fwd
+```
+
+```bash
+[fwd     ], hyper-cuda, seq_len: 1024    , causal: True, ms: 0.09318 (0.09523, 0.09933) |
+[fwd     ], hyper-cuda, seq_len: 2048    , causal: True, ms: 0.26726 (0.27136, 0.27750) |
+[fwd     ], hyper-cuda, seq_len: 4096    , causal: True, ms: 0.87020 (0.88474, 0.89416) |
+[fwd     ], hyper-cuda, seq_len: 8192    , causal: True, ms: 3.19959 (3.21843, 3.22744) |
+[fwd     ], hyper-cuda, seq_len: 16384   , causal: True, ms: 9.22993 (9.23853, 9.25348) |
+[fwd     ], hyper-cuda, seq_len: 32768   , causal: True, ms: 24.16988 (24.24013, 24.28498) |
+[fwd     ], hyper-cuda, seq_len: 65536   , causal: True, ms: 60.17126 (60.17126, 60.17126) |
+[fwd     ], hyper-cuda, seq_len: 131072  , causal: True, ms: 145.29126 (145.29126, 145.29126) |
+```
+
+**Thinformer:**
 
 ```bash
 python benchmark_single_attention.py --attn_method thinformer --mode fwd
+```
+
+```bash
+[fwd     ], thinformer, seq_len: 1024    , causal: True, ms: 0.09318 (0.09626, 0.09933) |
+[fwd     ], thinformer, seq_len: 2048    , causal: True, ms: 0.26481 (0.27034, 0.27689) |
+[fwd     ], thinformer, seq_len: 4096    , causal: True, ms: 0.85709 (0.87347, 0.88474) |
+[fwd     ], thinformer, seq_len: 8192    , causal: True, ms: 38.07109 (38.12147, 38.17185) |
+[fwd     ], thinformer, seq_len: 16384   , causal: True, ms: 76.75290 (76.75290, 76.75290) |
+[fwd     ], thinformer, seq_len: 32768   , causal: True, ms: 153.73619 (153.73619, 153.73619) |
+[fwd     ], thinformer, seq_len: 65536   , causal: True, ms: 244.14310 (244.14310, 244.14310) |
+[fwd     ], thinformer, seq_len: 131072  , causal: True, ms: 484.33151 (484.33151, 484.33151) |
 ```
 
 ### Perplexity
