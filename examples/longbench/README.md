@@ -11,7 +11,7 @@ conda activate thinformer-longbench
 pip install torch==2.6 torchvision torchaudio
 pip install flash-attn --no-build-isolation
 # Install other needed Python packages
-pip install tqdm
+pip install tqdm datasets transformers==4.40.2 sentencepiece
 ```
 
 > \[!NOTE\]
@@ -19,8 +19,12 @@ pip install tqdm
 
 ## Results
 
+### Runtime
+
+For the exact attention method, please run:
+
 ```bash
-python benchmark_single_attention.py --attn_method flash-cuda
+python benchmark_single_attention.py --attn_method flash-cuda --mode fwd
 ```
 
 Expected output:
@@ -39,6 +43,29 @@ mode: fwd+bwd, attn_method: flash-cuda, batch_size: 1, head_size: 32, dim: 64
 [fwd+bwd ], flash-cuda, seq_len: 131072  , causal: True, ms: 2405.08624 (2405.08624, 2405.08624) |
 ```
 
+For the thinformer method, please run:
+
 ```bash
 python benchmark_single_attention.py --attn_method thinformer --mode fwd
+```
+
+### Perplexity
+
+For the exact attention method, please run:
+
+```bash
+python benchmark_patch_llm.py --attn_method flash --seq_len 32768
+```
+
+Expected result:
+
+```bash
+ppl: 5.634139089948601, nan_cnt: 0
+model: chatglm2-6b-32k, dtype: torch.bfloat16, seq_len: 32768, num_patch_layers: -1, n_data: 144, ppl: 5.634139089948601, nan_cnt: 0
+```
+
+For the thinformer method, please run:
+
+```bash
+TODO
 ```
