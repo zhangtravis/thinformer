@@ -164,7 +164,7 @@ def halve(
         value.gather(2, coreset.expand(B, A, S_over_2, H, D)))
 
 
-@torch.compile(mode="reduce-overhead", fullgraph=True)
+# @torch.compile(mode="reduce-overhead", fullgraph=True)
 def _khcompress(
     key: torch.Tensor,
     value: torch.Tensor,
@@ -267,7 +267,7 @@ def khcompress(
 
     # NOTE: To prevent overwriting, we call 
     # torch.compiler.cudagraph_mark_step_begin() 
-    torch.compiler.cudagraph_mark_step_begin()
+    # torch.compiler.cudagraph_mark_step_begin()
     key, value = _khcompress(
         key, value,
         four_to_g_plus_1,
@@ -291,13 +291,14 @@ def add_self_attentions(attn1, lse1, attn2, lse2):
         = log(exp(lse1) * (1 + exp(lse2 - lse1))) 
         = lse1 + log(1 + exp(lse2 - lse1)) = lse1 - log(c)
     """
+    # import pdb; pdb.set_trace()
     c = (1 / (1 + (lse2 - lse1).exp())).to(dtype=attn1.dtype)
     attn = c * attn1 + (1-c) * attn2
     lse = lse1 - (c + torch.finfo(lse1.dtype).eps).log()
     return attn, lse
 
 
-@torch.compile(mode="reduce-overhead", fullgraph=True)
+# @torch.compile(mode="reduce-overhead", fullgraph=True)
 def full_forward(
     query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, causal: bool = False
 ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -471,7 +472,11 @@ class ThinformerHyperAttention(nn.Module):
         # With causal masking
         else:
             if n_key <= self.min_seq_len:
-                attn, lse = full_forward(query, key, value, causal=True)
+                # NOTE: key, value have shape [B, S, H, D]
+                # query has shape [B, T, H, E]
+                attn, lse = full_forward(query.transpose(1, 2), key.transpose(1, 2), value.transpose(1, 2), causal=True)
+                # NOTE: attn has shape [B, T, H, S]
+                # lse has shape [B, T, S, H]
             else:
             
                 # If n_query is odd we pad inputs by adding all-zero rows
@@ -480,6 +485,7 @@ class ThinformerHyperAttention(nn.Module):
                     key = torch.nn.functional.pad(key, (0,0,0,1), mode='constant',value=0.)
                     value = torch.nn.functional.pad(value, (0,0,0,1), mode='constant',value=0.)
 
+                # NOTE: should be using transpose instead of view?
                 q_bd = query.view(batch_size, 2*n_heads, query.shape[2]//2, query.shape[-1])
                 k_bd = key.view(batch_size, 2*n_heads, key.shape[2]//2, key.shape[-1])
                 v_bd = value.view(batch_size, 2*n_heads, key.shape[2]//2, value.shape[-1])
@@ -488,16 +494,21 @@ class ThinformerHyperAttention(nn.Module):
                 
                 if attn_bd.shape[2] not in attn_bd.stride():
                     attn_bd = attn_bd.contiguous()
-                attn_bd = attn_bd.view(batch_size, n_heads, -1, dim)
+                if False:
+                    attn_bd = attn_bd.view(batch_size, n_heads, -1, dim)
+                else:
+                    attn_bd = attn_bd.reshape(batch_size, n_heads, -1, dim)
 
                 if lse_bd.shape[2] not in lse_bd.stride():
                     lse_bd = lse_bd.contiguous()
                 lse_bd = lse_bd.view(batch_size, n_heads, -1, 1)
 
                 attn_unmasked, lse_unmasked = self.forward_no_causal_mask(
-                    query[:, :, key.shape[2]//2:, :],
-                    key[:, :, :key.shape[2]//2, :], 
-                    value[:, :, :key.shape[2]//2, :])
+                    query[:, :, key.shape[2]//2:, :].transpose(1, 2),
+                    key[:, :, :key.shape[2]//2, :].transpose(1, 2), 
+                    value[:, :, :key.shape[2]//2, :].transpose(1, 2))
+                attn_unmasked = attn_unmasked.transpose(1, 2)
+                # lse_unmasked = lse_unmasked.transpose(1, 2)
 
                 attn_up, lse_up = attn_bd[:,:,:query.shape[2]//2,:], lse_bd[:,:,:query.shape[2]//2,:]
                 attn_down, lse_down = add_self_attentions(

@@ -6,6 +6,7 @@ import triton
 
 from models.attention.flash_attn_triton_for_hyper import flash_attn_func
 from models.attention.hyper_attn import HyperAttention
+from thinformer.thinformer import ThinformerHyperAttention
 
 try:
     from flash_attn import flash_attn_func as flash_attn_func_cuda
@@ -17,7 +18,7 @@ def get_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--no_causal", action="store_true")
     parser.add_argument("--mode", type=str, default="fwd+bwd", choices=['fwd', 'bwd', 'fwd+bwd'])
-    parser.add_argument("--attn_method", type=str, default="flash", choices=['flash', 'flash-cuda', 'hyper', 'hyper-cuda'])
+    parser.add_argument("--attn_method", type=str, default="flash", choices=['flash', 'flash-cuda', 'hyper', 'hyper-cuda', 'thinformer'])
     return parser.parse_args()
 
 
@@ -93,6 +94,44 @@ def run_hyper_attn(batch_size, head_size, seq_len, dim, causal, mode, impl="trit
         q20_bwd, median_bwd, q80_bwd = triton.testing.do_bench(fn, warmup=warmup, rep=rep, 
         quantiles=[0.2, 0.5, 0.8])
         return q20_fwd+q20_bwd, median_fwd+median_bwd, q80_fwd+q80_bwd
+    
+
+def run_thinformer_attn(batch_size, head_size, seq_len, dim, causal, mode, impl="triton", warmup=20, rep=100):
+    q, k, v = get_tensors(batch_size, head_size, seq_len, dim)
+    block_size = 256
+    sample_size = 256
+    cuda = impl=="cuda"
+
+    attn = ThinformerHyperAttention(
+        # input_dim=dim,
+        # block_size=block_size,
+        # sample_size=sample_size,
+        min_seq_len=4096,
+        # cuda=cuda
+        ).to(device='cuda', dtype=q.dtype)
+    
+    fn = lambda: attn(q, k, v, causal=causal)
+
+    if mode == 'fwd':
+        return triton.testing.do_bench(fn, warmup=warmup, rep=rep, quantiles=[0.2, 0.5, 0.8])
+    elif mode == 'bwd':
+        o = fn()
+        do = torch.randn_like(o)
+        fn = lambda: o.backward(do, retain_graph=True)
+        return triton.testing.do_bench(fn, warmup=warmup, rep=rep, percentiles=[0.2, 0.5, 0.8])
+    else: # mode == 'fwd+bwd'
+        # NOTE: the percentiles argument has been replaced with quantiles in triton>=3
+        q20_fwd, median_fwd, q80_fwd = triton.testing.do_bench(fn, warmup=warmup, rep=rep, 
+        quantiles=[0.2, 0.5, 0.8])
+        # q20_fwd, median_fwd, q80_fwd = triton.testing.do_bench(fn, warmup=warmup, rep=rep, 
+        # quantiles=[0.2, 0.5, 0.8])
+        o = fn()
+        do = torch.randn_like(o)
+        fn = lambda: o.backward(do, retain_graph=True)
+        # q20_bwd, median_bwd, q80_bwd = triton.testing.do_bench(fn, warmup=warmup, rep=rep, percentiles=[0.2, 0.5, 0.8])
+        q20_bwd, median_bwd, q80_bwd = triton.testing.do_bench(fn, warmup=warmup, rep=rep, 
+        quantiles=[0.2, 0.5, 0.8])
+        return q20_fwd+q20_bwd, median_fwd+median_bwd, q80_fwd+q80_bwd
 
 
 def main():
@@ -118,6 +157,8 @@ def main():
             ms = run_hyper_attn(batch_size, head_size, seq_len, dim, causal, mode=args.mode)
         elif attn_method == 'hyper-cuda':
             ms = run_hyper_attn(batch_size, head_size, seq_len, dim, causal, mode=args.mode, impl="cuda")
+        elif attn_method == 'thinformer':
+            ms = run_thinformer_attn(batch_size, head_size, seq_len, dim, causal, mode=args.mode)
         else:
             raise NotImplementedError
         

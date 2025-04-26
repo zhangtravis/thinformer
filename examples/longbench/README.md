@@ -38,3 +38,7 @@ mode: fwd+bwd, attn_method: flash-cuda, batch_size: 1, head_size: 32, dim: 64
 [fwd+bwd ], flash-cuda, seq_len: 65536   , causal: True, ms: 594.00497 (594.00497, 594.00497) | 
 [fwd+bwd ], flash-cuda, seq_len: 131072  , causal: True, ms: 2405.08624 (2405.08624, 2405.08624) |
 ```
+
+```bash
+python benchmark_single_attention.py --attn_method thinformer --mode fwd
+```
