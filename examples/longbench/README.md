@@ -12,6 +12,9 @@ pip install torch==2.6 torchvision torchaudio
 pip install flash-attn --no-build-isolation
 # Install other needed Python packages
 pip install tqdm datasets transformers==4.40.2 sentencepiece
+# Install thinformer
+cd ../..
+pip install -e .
 ```
 
 > \[!NOTE\]
@@ -67,5 +70,12 @@ model: chatglm2-6b-32k, dtype: torch.bfloat16, seq_len: 32768, num_patch_layers:
 For the thinformer method, please run:
 
 ```bash
-TODO
+python benchmark_patch_llm.py --attn_method thinformer --seq_len 32768
+```
+
+Expected result:
+
+```bash
+ppl: 16.014302979344908, nan_cnt: 0
+model: chatglm2-6b-32k, dtype: torch.bfloat16, seq_len: 32768, num_patch_layers: -1, n_data: 115, ppl: 16.014302979344908, nan_cnt: 0
 ```
