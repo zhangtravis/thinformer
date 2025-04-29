@@ -9,6 +9,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from models.replace_llm_attention import patch_attention_layers
 
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 
 def get_model_and_tokenizer(model_name):
 
@@ -51,12 +54,12 @@ def main():
 
     # Load LongBench datasets
     dataset = 'longbench'
-    if False:
-        dataset_names = ["narrativeqa", "qasper", "multifieldqa_en", "multifieldqa_zh", "hotpotqa", "2wikimqa", "musique", \
-            "dureader", "gov_report", "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht", \
-            "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"]
-    else:
-        dataset_names = ["narrativeqa"]
+    # if False:
+    dataset_names = ["narrativeqa", "qasper", "multifieldqa_en", "multifieldqa_zh", "hotpotqa", "2wikimqa", "musique", \
+        "dureader", "gov_report", "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht", \
+        "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"]
+    # else:
+    #     dataset_names = ["narrativeqa"]
     
     data_subset_all = []
     for dataset in dataset_names:

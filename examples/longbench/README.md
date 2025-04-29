@@ -87,7 +87,7 @@ python benchmark_single_attention.py --attn_method thinformer --mode fwd
 **Exact:**
 
 ```bash
-python benchmark_patch_llm.py --attn_method flash-cuda --seq_len 32768
+python benchmark_patch_llm.py --attn_method flash --seq_len 32768
 ```
 
 Expected result:
@@ -121,4 +121,44 @@ Expected result:
 ```bash
 ppl: 16.014302979344908, nan_cnt: 0
 model: chatglm2-6b-32k, dtype: torch.bfloat16, seq_len: 32768, num_patch_layers: -1, n_data: 115, ppl: 16.014302979344908, nan_cnt: 0
+```
+
+### Perplexity over all datasets
+**Exact:**
+
+```bash
+python benchmark_patch_llm.py --attn_method flash --seq_len 32768
+```
+
+Expected result:
+
+```bash
+ppl: 5.634139089948601, nan_cnt: 0
+model: chatglm2-6b-32k, dtype: torch.bfloat16, seq_len: 32768, num_patch_layers: -1, n_data: 144, ppl: 5.634139089948601, nan_cnt: 0
+```
+
+**HyperAttention:**
+
+```bash
+python benchmark_patch_llm.py --attn_method hyper-cuda --seq_len 32768
+```
+
+Expected result:
+
+```bash
+ppl: 12.15541132622295, nan_cnt: 0
+model: chatglm2-6b-32k, dtype: torch.bfloat16, seq_len: 32768, num_patch_layers: -1, n_data: 144, ppl: 12.15541132622295, nan_cnt: 0
+```
+
+**Thinformer:**
+
+```bash
+python benchmark_patch_llm.py --attn_method thinformer --seq_len 32768
+```
+
+Expected result:
+
+```bash
+ppl: 13.978334309326279, nan_cnt: 0
+model: chatglm2-6b-32k, dtype: torch.bfloat16, seq_len: 32768, num_patch_layers: -1, n_data: 144, ppl: 13.978334309326279,nan_cnt: 0
 ```
